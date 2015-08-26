@@ -1,6 +1,6 @@
 #Guide to ncreview
 
-`ncreview` is a tool which allows users to produce interactive web-based comparisons between datastreams or summaries of a single datastream, providing information on netCDF data and metadata. The metadata part of the review is produced in a non-lossy way which preserves all metadata information present throughout each datastream. Numerical data is summarized with statistics like min, max, mean, n_missing, etc. for a summary interval which can be specified by the user at the command line. This interval defaults to a day unless the review spans less than ten days, in which case hourly samples are selected.
+`ncreview` is a tool which allows users to produce interactive web-based comparisons between datastreams or summaries of a single datastream, providing information on netCDF data and metadata. The metadata part of the review is produced in a non-lossy way which preserves all metadata information present throughout each datastream. Numerical data is summarized with statistics like min, max, mean, n_missing, etc. for a summary interval which can be specified by the user at the command line.
 
 ##Command Line Interface
 
