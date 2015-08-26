@@ -26,7 +26,7 @@ At the top level, there are four main sections into which the summary informatio
 
 ###Variables
 
-Each variable section contains a summary of its data, a list of its dimensions, and a variable attributes section which behaves precisely like the global attributes section. If the variable has companion variables such as QC data, these will be stored in a companions section in the variable structure.
+Each variable section contains a summary of its data, a list of its dimensions, and a variable attributes section which behaves precisely like the global attributes section. If the variable has companion variables such as QC data, these will be stored in a `companions` section in the variable structure.
 
 ####Data
 
