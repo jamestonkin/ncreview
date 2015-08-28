@@ -2,6 +2,12 @@
 
 `ncreview` is a tool which allows users to produce interactive web-based comparisons between datastreams or summaries of a single datastream, providing information on netCDF data and metadata. The metadata part of the review is produced in a non-lossy way which preserves all metadata information present throughout each datastream. Numerical data is summarized with statistics like min, max, mean, n_missing, etc. for a summary interval which can be specified by the user at the command line.
 
+##Setup
+To use ncreview normally on the ARM servers, there are a few modifications you need to make to your enviornment.
+Set the following enviornment variables in your profile:
+ - `PATH` to `/apps/ds/bin:$PATH`
+ - `PYTHONPATH` to `/apps/ds/lib`
+
 ##Command Line Interface
 
 The reports are created through the `ncreview` command line interface, and deposited at a URL to be opened in a browser. Usage help can be found by typing `ncreview --help`.
