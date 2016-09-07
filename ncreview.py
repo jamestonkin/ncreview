@@ -10,276 +10,328 @@ import os
 import re
 import csv
 import sys
+import math
 import time
 import json
 import errno
+import signal
 import argparse
+import traceback
 import datetime as dt
+from concurrent.futures import ProcessPoolExecutor
 
 import ncr.utils as utils
+from ncr.summary import SumFile
 from ncr.datastream import Datastream
 from ncr.datastreamdiff import DatastreamDiff
-
-import pdb
 
 ### Progress Bar ------------------------------------------------------------------------------------------------------
 
 class ProgressBar:
     '''Reports progress of loading datastreams, and estimates time remaining.
     '''
-    def __init__(self, total_size, progress_bar_width=50):
+    def __init__(self, total, width=50):
         '''Initialize a progress bar
-
         Parameters:
-            total_size             total number of files to process
-            progress_bar_width  Character width of the progress bar
+            total  numeric value of what "complete" represents
+            width  character width of the progress bar
         '''
-        # progress bar variables
-        self.progress_bar_width = 50 # width of the progress bar in characters
-        self.processed_size = 0
-        self.total_size = total_size
-        self.start_time = time.clock()
+        self.width = width
+        self.done = 0
+        self.total = total
+        self.started = time.perf_counter()
 
     def start(self):
         '''Save time when this method is called, and print a timeline at 0% progress.
         '''
-        self.start_time = time.clock()
-        sys.stdout.write('\r['+(' '*self.progress_bar_width)+']0%')
+        self.started = time.perf_counter()
+        sys.stdout.write('\r['+(' '*self.width)+']0%')
 
-    def update(self, file_size):
+    def update(self, amount):
         '''Increment the number of files processed by one, and update the progress bar accordingly
         '''
-        ## update the progress bar
-        self.processed_size += file_size
-        time_elapsed = time.clock() - self.start_time
-        total_time   = time_elapsed * self.total_size / self.processed_size
-        time_remain  = (total_time - time_elapsed)*1.1 # overestimate by 10%
-
-        mins_remain = int(time_remain // 60)
-        secs_remain = int(time_remain % 60)
-
-        progress = self.processed_size / self.total_size
-
-        sys.stdout.write('\r[{0}{1}]{2}% ~{3}:{4} left    '.format(
-            '#'*int(self.progress_bar_width*progress),
-            ' '*int(self.progress_bar_width*(1-progress)),
+        self.done += amount
+        elapsed  = time.perf_counter() - self.started
+        estimate = elapsed * self.total / self.done
+        remains  = (estimate - elapsed)*1.1 # overestimate by 10%
+        progress = self.done / self.total
+        sys.stdout.write('\r[{0}{1}]{2}% ~{3} left    '.format(
+            '#'*int(self.width*progress),
+            ' '*int(self.width*(1-progress)),
             int(progress*100),
-            mins_remain,
-            "%02d" % secs_remain)
+            utils.time_diff(int(remains)))
         )
         sys.stdout.flush()
 
     def complete(self):
         '''Display a progress bar at 100%
         '''
-        print('\r['+('#'*self.progress_bar_width)+']100%'+' '*15)
+        print('\r['+('#'*self.width)+']100%'+' '*20)
 
-### Parse Args --------------------------------------------------------------------------------------------------------
+### Utilities --------------------------------------------------------------------------------------------------------
 
-parser = argparse.ArgumentParser(description='Review reprocessing between two directories, or summari',
-    epilog='Note that if --begin and --end are unspecified when comparing datastreams, '+ \
-    'the time span chosen will be the intersection of the time periods spanned by both datastreams.')
-parser.add_argument('old_dir', help='Old datastream directory')
+def is_plottable(path):
+    path_match = re.search('\/([a-z]{3})\/\\1[a-zA-Z0-9\.]+\s*$', path)
+    return path_match is not None
 
-parser.add_argument('new_dir', nargs='?', default=None, 
-    help='New datastream directory, exclude to simply review a single directory.')
+def summarize_all(root, paths, interval, mdonly):
+    for p in paths:
+        yield summarize(('%s/%s' % (root,p), interval, mdonly))
 
-parser.add_argument('--begin', '-b', default='00010101', metavar='YYYYMMDD', help='Ignore files before YYYYMMDD')
-parser.add_argument('--end', '-e', default='99991231',  metavar='YYYYMMDD', help='Ignore files after YYYYMMDD')
+def summarize(args):
+    (path, interval, mdonly) = args
+    f = SumFile(path, interval=interval, mdonly=mdonly)
+    f.read()
+    return f.jsonify()
 
-parser.add_argument('--sample_interval', '-t', default=None,
-	help='Time interval to average data over in HH-MM-SS. If not provided, '+\
-         'defaults to 1 day if more than 10 days are being processed, otherwise defaults to hourly samples')
+### Main --------------------------------------------------------------------------------------------------------------
 
-parser.add_argument('--metadata_only', '-m', action='store_true', default=False,
-    help='Review only metadata, ignoring variable data. Much faster than standard review.')
+def main(argv):
 
-parser.add_argument('--write_dir', '-w', default=None, metavar='DIR', help='write output data files to specified directory')
+    start = time.time()
 
-parser.add_argument('--name', '-n', default=None,
-    help='Specify custom name to be used for the run.  Will be the directory name where the '+\
-         'summary files ncreview creates are stored as well as the URL suffix.')
+    min_readers = 1
+    max_readers = 20
 
-# convert time arguments 
-args = parser.parse_args()
+    ### Parse Args ----------------------------------------------------------------------------------------------------
 
-# get absolute directory paths,
-# this will be important for the webpage to know where the datastreams came from
-args.old_dir = os.path.abspath(args.old_dir)
-if args.new_dir: args.new_dir = os.path.abspath(args.new_dir)
-if args.write_dir: 
-    args.write_dir = os.path.abspath(args.write_dir)
+    parser = argparse.ArgumentParser(description='Compare netCDF files between two directories or summarize from single directory',
+    epilog='''Note that if --begin and --end are unspecified when comparing datastreams,
+    the time span chosen will be the intersection of the time periods spanned by both datastreams.''')
+    parser.add_argument('old_dir', help='Old netCDF files directory')
 
-    if not os.path.exists(os.path.dirname(args.write_dir)):
-        sys.stderr.write("Error: write directory %s does not exist\n"%os.path.dirname(args.write_dir))
-        quit()
+    parser.add_argument('new_dir', nargs='?', default=None,
+        help='New netCDF files directory, exclude to simply summarize a single directory.')
 
-args.begin = dt.datetime.strptime(args.begin, '%Y%m%d')
-args.end   = dt.datetime.strptime(args.end,   '%Y%m%d')
+    parser.add_argument('--begin', '-b', default='00010101', metavar='YYYYMMDD', help='Ignore files before YYYYMMDD')
+    parser.add_argument('--end', '-e', default='99991231',  metavar='YYYYMMDD', help='Ignore files after YYYYMMDD')
 
-try:
-    if args.sample_interval is not None:
-        h, m, s = args.sample_interval.split('-')
-        args.sample_interval = int(h)*60*60+int(m)*60+int(s)
-except:
-    sys.stderr.write("Error: chunk time %s is invalid.\n"%args.sample_interval)
-    quit()
+    parser.add_argument('--sample_interval', '-t', default=None,
+    	help='Time interval to average data over in HH-MM-SS. If not provided, '+\
+             'defaults to 1 day if more than 10 days are being processed, otherwise defaults to hourly samples')
 
-### Review Data -------------------------------------------------------------------------------------------------------
-def is_valid(fname):
-    t = utils.file_time(fname)
-    return t is not None and args.begin <= t <= args.end
+    parser.add_argument('--metadata_only', '-m', action='store_true', default=False,
+        help='Review only metadata, ignoring variable data. Much faster than standard review.')
 
-args.new_dir = os.path.abspath(args.new_dir) if args.new_dir else args.new_dir
-args.old_dir = os.path.abspath(args.old_dir) if args.old_dir else args.old_dir
+    parser.add_argument('--write_dir', '-w', default=None, metavar='DIR', help='write output data files to specified directory')
 
-jdata = None
-if args.new_dir:
-    new_files = sorted(filter(is_valid, os.listdir(args.new_dir)))
-    old_files = sorted(filter(is_valid, os.listdir(args.old_dir)))
+    parser.add_argument('--name', '-n', default=None,
+        help='Specify custom name to be used for the run.  Will be the directory name where the '+\
+             'summary files ncreview creates are stored as well as the URL suffix.')
 
-    if not new_files:
-        raise RuntimeError(args.new_dir+' contains no netCDF files in the specified time period.')
-    if not old_files:
-        raise RuntimeError(args.old_dir+' contains no netCDF files in the specified time period.')
+    parser.add_argument('--readers', type=int, default=10,
+        help='Specify number of concurrent file readers.  Will accept a number between %d and %d (inclusive).' % (min_readers, max_readers))
 
-    # get the latest begin and earliest end
-    sys.stdout.write('Determining comparison interval...')
-    new_times = list(map(utils.file_time, new_files))
-    old_times = list(map(utils.file_time, old_files))
+    args = parser.parse_args()
 
-    args.begin = max(min(new_times), min(old_times)).replace(hour=0, minute=0, second=0, microsecond=0)
-    args.end   = min(max(new_times), max(old_times)).replace(hour=23, minute=59, second=59, microsecond=999)
+    # Get absolute directory paths...
+    # This will be important for the webpage to know where the datastreams came from.
+    args.old_dir = os.path.abspath(args.old_dir)
+    if args.new_dir: args.new_dir = os.path.abspath(args.new_dir)
+    if args.write_dir: 
+        args.write_dir = os.path.abspath(args.write_dir)
 
-    # re-filter the files with the new time bounds
-    new_files = sorted(filter(is_valid, new_files))
-    old_files = sorted(filter(is_valid, old_files))
+        if not os.path.exists(os.path.dirname(args.write_dir)):
+            raise ValueError("Error: write directory %s does not exist\n"%os.path.dirname(args.write_dir))
 
-    if not new_files or not old_files:
-        raise RuntimeError('Old and New directories do not appear to have overlapping measurement '+ \
-            'times in the specified time period. Cannot determine a comparison interval.')
-    sys.stdout.write('\r')
+    args.begin = dt.datetime.strptime(args.begin, '%Y%m%d')
+    args.end   = dt.datetime.strptime(args.end,   '%Y%m%d')
 
-    sys.stdout.write('Determining total file size...'+' '*10)
-    sys.stdout.flush()
-    total_size = 0
-    for f in old_files:
-        total_size += os.stat(args.old_dir+'/'+f).st_size
+    if args.readers < min_readers or args.readers > max_readers:
+        raise ValueError("Error: number of readers must be between %d and %d (inclusive)." % (min_readers, max_readers))
 
-    for f in new_files:
-        total_size += os.stat(args.new_dir+'/'+f).st_size
+    try:
+        if args.sample_interval is not None:
+            h, m, s = args.sample_interval.split('-')
+            args.sample_interval = int(h)*60*60+int(m)*60+int(s)
+        elif args.end - args.begin > dt.timedelta(days=10): # if interval is more than 10 days
+            args.sample_interval = 24*60*60 # set interval to 24 hr
+        else:
+            args.sample_interval = 60*60 # set interval to 1 hr
+    except:
+        raise ValueError("Error: chunk time %s is invalid.\n" % args.sample_interval)
 
-    progress_bar = ProgressBar(total_size)
-    sys.stdout.write('\r')
-    # read datastreams
-    print('Loading datastreams...'+' '*10)
-    progress_bar.start()
-    old_ds = Datastream(args.old_dir, args.begin, args.end, args.sample_interval, args.metadata_only, progress_bar)
-    new_ds = Datastream(args.new_dir, args.begin, args.end, args.sample_interval, args.metadata_only, progress_bar)
-    progress_bar.complete()
-    # compare datastreams
-    print('Comparing datastreams...')
-    dsdiff = DatastreamDiff(old_ds, new_ds)
-    jdata = dsdiff.jsonify()
-else:
-    path = args.old_dir
+    if args.sample_interval <= 0: # if user specified non-positive sample interval
+        raise ValueError('Error: sample interval must be a positive number, not ' + str(args.sample_interval))
 
-    files = sorted(filter(is_valid, os.listdir(path)))
+    ### Review Data -----------------------------------------------------------------------------------------------
 
-    if not files:
-        raise RuntimeError(path+' contains no netCDF files in the specified time period.')
+    def is_valid(fname):
+        t = utils.file_time(fname)
+        return t is not None and args.begin <= t <= args.end
 
-    sys.stdout.write('Determining total file size...'+' '*10)
-    sys.stdout.flush()
-    total_size = 0
-    for f in files:
-        total_size += os.stat(path+'/'+f).st_size
+    args.new_dir = os.path.abspath(args.new_dir) if args.new_dir else args.new_dir
+    args.old_dir = os.path.abspath(args.old_dir) if args.old_dir else args.old_dir
 
-    progress_bar = ProgressBar(total_size)
-    sys.stdout.write('\r')
-    # read datastreams
-    print('Loading datastream...'+' '*10)
-    progress_bar.start()
-    ds = Datastream(path, args.begin, args.end, args.sample_interval, args.metadata_only, progress_bar)
-    progress_bar.complete()
+    jdata = None
+    if args.new_dir:
+        new_files = sorted(filter(is_valid, os.listdir(args.new_dir)))
+        old_files = sorted(filter(is_valid, os.listdir(args.old_dir)))
 
-    jdata = ds.jsonify()
+        if not new_files:
+            raise RuntimeError(args.new_dir+' contains no netCDF files in the specified time period.')
+        if not old_files:
+            raise RuntimeError(args.new_dir+' contains no netCDF files in the specified time period.')
 
-### Write out the data ------------------------------------------------------------------------------------------------
+        # Get the latest begin and earliest end
+        new_times = list(map(utils.file_time, new_files))
+        old_times = list(map(utils.file_time, old_files))
 
-def unique_name(format_str, path):
-    '''Produce a unique directory name at the specified path'''
-    ID = 1
-    while os.path.exists(path+'/'+format_str.format(ID)): ID += 1
-    return format_str.format(ID)
+        args.begin = max(min(new_times), min(old_times)).replace(hour=0, minute=0, second=0, microsecond=0)
+        args.end   = min(max(new_times), max(old_times)).replace(hour=23, minute=59, second=59, microsecond=999)
 
-# get the path of the dir to write to
-wpath = '/data/tmp/ncreview/'
+        # Re-filter the files with the new time bounds
+        new_files = sorted(filter(is_valid, new_files))
+        old_files = sorted(filter(is_valid, old_files))
 
-if args.write_dir is not None:
-    wpath = args.write_dir
+        if not new_files or not old_files:
+            raise RuntimeError('Old and New directories do not appear to have overlapping measurement '+ \
+                'times in the specified time period. Cannot determine a comparison interval.')
 
-if not os.path.exists(wpath):
-    os.mkdir(wpath)
+        print('Scanning directories...')
 
-format_str = ''
-if args.name:
-    format_str = args.name
-    if os.path.exists(wpath+'/'+args.name): 
-        format_str += '.{0}' # if the directory already exists, add a unique id
+        total_size = 0
+        for (which, path, files) in (('old',args.old_dir,old_files),('new',args.new_dir,new_files)):
+            for f in files:
+                total_size += os.stat('%s/%s' % (path, f)).st_size
 
-elif args.write_dir:
-    format_str = '.ncr.'+dt.datetime.now().strftime('%y%m%d.%H%M%S')
-    if os.path.exists(format_str): 
-        format_str += '.{0}' # if the directory already exists, add a unique id
-else:
-    format_str = '%s.%s.{0}'%(os.environ['USER'], os.environ['HOST'])
+        progress_bar = ProgressBar(total_size)
 
-jdata_dir = unique_name(format_str, wpath)
+        print('Reading data...')
 
-jdata_path = wpath+'/'+jdata_dir+'/'
+        old_ds = Datastream(is_plottable(args.old_dir), args.sample_interval)
+        new_ds = Datastream(is_plottable(args.new_dir), args.sample_interval)
 
-os.mkdir(jdata_path)
+        progress_bar.start()
 
-n = 1
-def separate_data(obj):
-    global n
-    to_separate = []
-    if obj['type'] in ['plot', 'timeline', 'fileTimeline', 'timelineDiff']:
-        to_separate = ['data']
-    elif obj['type'] in ['plotDiff', 'fileTimelineDiff']:
-        to_separate = ['old_data', 'new_data']
+        with ProcessPoolExecutor(max_workers=args.readers) as executor:
+            for s in executor.map(summarize, map(lambda f: ('%s/%s'%(args.old_dir,f),args.sample_interval,args.metadata_only), old_files)):
+                old_ds.add(s)
+                progress_bar.update(os.stat(s['path']).st_size)
+            for s in executor.map(summarize, map(lambda f: ('%s/%s'%(args.new_dir,f),args.sample_interval,args.metadata_only), new_files)):
+                new_ds.add(s)
+                progress_bar.update(os.stat(s['path']).st_size)
 
-    for key in to_separate:
-        # generate a unique csv file name
-        while os.path.isfile(jdata_path+'ncreview.{0}.csv'.format(n)): n += 1
+        progress_bar.complete()
 
-        # write out the data as csv
-        with open(jdata_path+'ncreview.{0}.csv'.format(n), 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile, quoting=csv.QUOTE_NONNUMERIC)
-            for row in obj[key]: writer.writerow(row)
+        print('Comparing...')
+        dsdiff = DatastreamDiff(old_ds, new_ds)
+        jdata = dsdiff.jsonify()
 
-        # make what was the data a reference to the file
-        obj[key] = n
+    else:
+        path = args.old_dir
 
-    if 'contents' in obj:
-        for c in obj['contents']:
-            separate_data(c)
+        files = sorted(filter(is_valid, os.listdir(path)))
 
-separate_data(jdata)
+        if not files:
+            raise RuntimeError(path+' contains no netCDF files in the specified time period.')
 
-# Write out the results as json
-with open(jdata_path+'ncreview.json', 'w') as jfile:
-    jfile.write(json.dumps(jdata, default=utils.JEncoder))
+        print('Scanning directory...')
 
-first_dir, user, *_ = os.path.realpath(__file__).split('/')[1:]
-location = '/~'+user+'/dsutil' if first_dir == 'home' else ''
+        total_size = 0
+        for f in files:
+            total_size += os.stat('%s/%s' % (path,f)).st_size
 
-url_string = jdata_dir;
+        progress_bar = ProgressBar(total_size)
 
-if args.write_dir: # if custom write location, put full path
-    url_string = jdata_path
+        print('Reading data...')
+        ds = Datastream(is_plottable(path), args.sample_interval)
 
-print ("Complete!")
-print ("report at")
-print ('https://engineering.arm.gov'+location+'/ncreview/?'+url_string)
+        progress_bar.start()
+        
+        with ProcessPoolExecutor(max_workers=args.readers) as executor:
+            for s in executor.map(summarize, map(lambda f: ('%s/%s'%(path,f),args.sample_interval,args.metadata_only), files)):
+                ds.add(s)
+                progress_bar.update(os.stat(s['path']).st_size)
+
+        progress_bar.complete()
+
+        jdata = ds.jsonify()
+
+    ### Write out the data --------------------------------------------------------------------------------------------
+
+    def unique_name(format_str, path):
+        '''Produce a unique directory name at the specified path'''
+        ID = 1
+        while os.path.exists(path+'/'+format_str.format(ID)): ID += 1
+        return format_str.format(ID)
+
+    wpath = '/data/tmp/ncreview/'
+
+    if args.write_dir is not None:
+        wpath = args.write_dir
+
+    if not os.path.exists(wpath):
+        os.mkdir(wpath)
+
+    format_str = ''
+    if args.name:
+        format_str = args.name
+        if os.path.exists(wpath+'/'+args.name): 
+            format_str += '.{0}' # if the directory already exists, add a unique id
+
+    elif args.write_dir:
+        format_str = '.ncr.'+dt.datetime.now().strftime('%y%m%d.%H%M%S')
+        if os.path.exists(format_str): 
+            format_str += '.{0}' # if the directory already exists, add a unique id
+    else:
+        format_str = '%s.%s.{0}'%(os.environ['USER'], os.environ['HOST'])
+
+    jdata_dir = unique_name(format_str, wpath)
+
+    jdata_path = wpath+'/'+jdata_dir+'/'
+
+    os.mkdir(jdata_path)
+
+    def separate_data(obj, n=1):
+        to_separate = []
+        if obj['type'] in ['plot', 'timeline', 'fileTimeline', 'timelineDiff']:
+            to_separate = ['data']
+        elif obj['type'] in ['plotDiff', 'fileTimelineDiff']:
+            to_separate = ['old_data', 'new_data']
+
+        for key in to_separate:
+            # Generate a unique csv file name
+            while os.path.isfile(jdata_path+'ncreview.{0}.csv'.format(n)): n += 1
+
+            # Write out the data as csv
+            with open(jdata_path+'ncreview.{0}.csv'.format(n), 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile, quoting=csv.QUOTE_NONNUMERIC)
+                for row in obj[key]: writer.writerow(row)
+
+            # Make what was the data a reference to the file
+            obj[key] = n
+
+        if 'contents' in obj:
+            for c in obj['contents']:
+                separate_data(c, n)
+
+    separate_data(jdata)
+
+    with open(jdata_path+'ncreview.json', 'w') as jfile:
+        jfile.write(json.dumps(jdata, default=utils.JEncoder))
+
+    first_dir, user, *_ = os.path.realpath(__file__).split('/')[1:]
+    location = '/~'+user+'/dsutil' if first_dir == 'home' else ''
+
+    url_string = jdata_dir;
+
+    if args.write_dir: # if custom write location, put full path
+        url_string = jdata_path
+
+    print("")
+    print("Complete! Took %s." % utils.time_diff(time.time() - start))
+    print("------------------------------------------------------------------------")
+    print('https://engineering.arm.gov'+location+'/ncreview/?'+url_string)
+    print("")
+
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        main(sys.argv[1:])
+    except Exception as e:
+        sys.stderr.write(e)
+        sys.exit(1)
+    sys.exit(0)

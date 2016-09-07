@@ -36,7 +36,6 @@ from collections import namedtuple
 
 from ncr.datastream import TimedData, UntimedData
 import ncr.utils as utils
-import pdb
 
 ### Timeline ----------------------------------------------------------------------------------------------------------
 

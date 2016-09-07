@@ -6,11 +6,28 @@ import time
 import json
 import numpy as np
 import datetime as dt
+import signal
+import calendar
+import logging
+import logging.config
+import logging.handlers
 
 # regex for checking netcdf file names
 ncfname_re = \
     re.compile('^([a-z]{3})([a-z0-9]*)([A-Z]\d+)\.([a-z]\d).'
                +'(\d{4})(\d\d)(\d\d)\.(\d\d)(\d\d)(\d\d)\.(cdf|nc)$')
+
+
+
+def strtotime(timestring, timeformat):
+    t = time.strptime(timestring, timeformat)
+    return calendar.timegm(t)
+
+
+def timetostr(timestamp, timeformat):
+    return time.strftime(timeformat, time.gmtime(timestamp))
+
+
 
 def file_time(fname):
     '''Return time in netcdf file name as a datetime object
@@ -18,10 +35,12 @@ def file_time(fname):
     match = ncfname_re.match(fname)
     return dt.datetime(*map(int, match.groups()[4:10])) if match else None
 
+
 def file_datastream(fname):
     '''return the datstream substring from a filename'''
     match = ncfname_re.match(fname)
     return ''.join(match.groups()[:4])
+
 
 def store_difference(func):
     '''Decorator that causes difference() methods to store and reuse their result.
@@ -31,6 +50,7 @@ def store_difference(func):
             setattr(self, '_difference', func(self))
         return self._difference
     return difference
+
 
 def json_section(self, contents):
     '''Returns a json section object with the specified contents.
@@ -45,6 +65,7 @@ def json_section(self, contents):
     elif hasattr(self, '_difference'):
         sec['difference'] = self._difference
     return sec
+
 
 def JEncoder(obj):
     ''' Defines a few default behaviours when the json encoder doesn't know what to do
@@ -62,6 +83,7 @@ def JEncoder(obj):
         except:
             raise TypeError('Object of type {0} with value of {1} is not JSON serializable' \
                 .format(type(obj), repr(obj)))
+
 
 def shared_times(old_ftimes, new_ftimes):
     '''Yeilds time intervals shared by both the old and new files, in order.
@@ -97,3 +119,12 @@ def shared_times(old_ftimes, new_ftimes):
         else:
             old_i, old_f = next(old_itr, (None, None))
             new_i, new_f = next(new_itr, (None, None))
+
+
+def time_diff(n):
+    (m,s) = divmod(n, 60)
+    (h,m) = divmod(m, 60)
+    if h > 23:
+        (d,h) = divmod(h, 24)
+        return '%dd:%02dh:%02dm:%02ds' % (d,h,m,s)
+    return '%dh:%02dm:%02ds' % (h,m,s)
