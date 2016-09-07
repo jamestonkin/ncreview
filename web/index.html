@@ -1,0 +1,42 @@
+<head>
+<title> ncReview </title>
+<link rel="stylesheet" type="text/css" href="css/ncreview.css">
+<meta charset="utf-8">
+<script src="js/d3.min.js"      charset="utf-8"></script>
+<script src="js/utils.js"       charset="utf-8"></script>
+<script src="js/timeline.js"    charset="utf-8"></script>
+<script src="js/plot.js"        charset="utf-8"></script>
+<script src="js/variable.js"    charset="utf-8"></script>
+<script src="js/datastream.js"  charset="utf-8"></script>
+<script src="js/static_data.js" charset="utf-8"></script>
+<script src="js/structure.js"   charset="utf-8"></script>
+<script src="js/load_json.js"   charset="utf-8"></script>
+<script src="js/better-dom.js"></script>
+<script src="js/better-details-polyfill.js"></script>
+
+</head>
+<body onload="load_from_url()">
+<!--
+<div id="banner">
+	<div class="right">
+		For best results, use <a target="_blank" href="http://www.google.com/chrome">Google Chrome</a>.
+	</div>
+	<h1>ncreview</h1>
+</div>
+-->
+<div id="main">
+	<details id="legend">
+		<summary style="float:right">Legend</summary>
+		<span style='font-family:sans-serif'>
+		<div class="same"   > Same    </div>
+		<div class="changed"> Changed </div>
+		<div class="added"  > Added   </div>
+		<div class="removed"> Removed </div>
+		<span style="color:red"   >---</span> Old data<br>
+		<span style="color:blue"  >---</span> New data<br>
+		<span style="color:purple">---</span> Overlap of old &amp; new<br>
+		</span>
+	</details>
+	<div id="status_indicator">No Data Loaded</div>
+</div>
+</body>
