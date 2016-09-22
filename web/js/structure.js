@@ -21,7 +21,8 @@ var render = {
     'fileTimelineDiff' : render_file_timeline_diff,
     'plotDiff'         : render_plot_diff,
     'staticValueDiff'  : render_static_value_diff,
-    'staticSummaryDiff': render_static_summary_diff
+    'staticSummaryDiff': render_static_summary_diff,
+    'summary'          : render_summary,
 };
 
 /**
@@ -37,6 +38,7 @@ function render_object(parent, object) {
     if (!render.hasOwnProperty(object.type)) {
         throw new Error('Unrecognized object type: '+object.type);
     }
+    console.log(object);
     render[object.type](parent, object);
 }
 

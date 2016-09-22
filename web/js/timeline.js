@@ -157,7 +157,7 @@ function Timeline(parent) {
 	};
 
 	var x = d3.time.scale()
-		.range([margins.left, timeline_width+margins.left]);
+		.rangeRound([margins.left, timeline_width+margins.left]);
 
 	var area = d3.svg.area()
 		.defined(function(d) {return d !== null;})
@@ -328,6 +328,9 @@ function render_file_timeline(parent, object) {
 
 			beg_td.text(f ? format(f.beg) : null);
 			end_td.text(f ? format(f.end) : null);
+
+
+
 		};
 	});
 }

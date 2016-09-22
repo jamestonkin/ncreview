@@ -140,7 +140,7 @@ class TimedDataDiff:
         # get the first difference
         def sample_diffs():
             i = 0
-            for beg, end, *_ in shared_times:
+            for beg, end, *_ in shared_times: 
                 beg = (beg//sample_interval)*sample_interval
 
                 while i < len(summary_times) and summary_times[i] < beg: i += 1
@@ -391,6 +391,7 @@ class NCDictDiff(dict):
             elif name in new:
                 self[name] = new[name]
                 setattr(self[name], '_difference', 'added')
+            
 
     @utils.store_difference
     def difference(self):
@@ -482,6 +483,58 @@ class DatastreamDiff:
                 sys.stderr.write('\n')
             sys.stderr.flush()
 
+    def summarize(self):
+        different_times = []
+        for row in self.dimensions['time']:
+            # check if new and old values are the same
+            if row[0] == row[1]:
+                continue
+            else:
+                # re-order the data
+                newrow = []
+                newrow .append(row[2])          # date
+                newrow.append(row[0])           # old
+                newrow.append(row[1])           # new
+                newrow.append(row[1] - row[0])  # diff
+                different_times.append(newrow)
+
+        nanns = 0   # index 3
+        infs = 0    # index 4
+        fills = 0   # index 5
+
+        for key, value in self.variables.items():
+            try:
+                for ns, ns2 in zip(value.data.old, value.data.new): # all data is the same length (10)
+                    row = ns.row()
+                    row2 = ns2.row()
+                    if len(row) != 10:  # all rows are the same size in the tables
+                        break           # if they're not 10 in length, they're not the data we're looking for
+                    nanns += row[3] + row2[3]
+                    infs += row[4] + row2[4]
+                    fills += row[5] + row2[5]
+
+            except Exception as e:
+                for ns in value.data:
+                    row = ns.old.row()
+                    row2 = ns.new.row()
+                    if len(row) != 10:
+                        break
+                    nanns += row[3] + row2[3]
+                    infs += row[4] + row2[4]
+                    fills += row[5] + row2[5]
+
+        bad_data = {}
+        bad_data['nanns'] = nanns
+        bad_data['infs'] =  infs
+        bad_data['fills'] = fills
+        
+        return {
+            'type': 'summary',
+            'different_times': different_times,
+            'random_text': 'Hey look this isn\'t data but oh well',
+            'bad_data': bad_data
+        }
+
     def jsonify(self):
         return {
             'type': 'datastreamDiff',
@@ -506,7 +559,8 @@ class DatastreamDiff:
                 },
                 self.attributes.jsonify(),
                 self.dimensions.jsonify(),
-                self.variables.jsonify()
+                self.variables.jsonify(),
+                self.summarize()
             ]
         }
 

@@ -756,6 +756,12 @@ class Datastream:
         self.dimensions.load({d['name']:d['length'] for d in f['dimensions']})
         self.variables.load({v['name']:v for v in f['variables']})
 
+    def summarize(self):
+        return {
+            'type': 'summary'
+            # added summarize features go here
+        }
+
     def jsonify(self):
         self.variables.nest_companions()
         return {
@@ -777,7 +783,8 @@ class Datastream:
                 },
                 self.attributes.jsonify(),
                 self.dimensions.jsonify(),
-                self.variables.jsonify()
+                self.variables.jsonify(),
+                self.summarize(),
             ]
         }
 
