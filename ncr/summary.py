@@ -3,6 +3,7 @@ import re
 import sys
 import time
 import logging
+import calendar
 import traceback
 import numpy as np
 import netCDF4 as nc
@@ -135,6 +136,14 @@ class NumDataType:
             ninf = 0
 
         if nnan or ninf:
+            if isinstance(data.mask, np.bool_):
+                # Sometimes I really hate numpy.  Turns out "np.masked_where" (above) will return a scalar
+                # True or False when the mask is either all or none respectively.  But that means we have
+                # to do this crazy thing where we force the mask to be the same shape as the data so we
+                # can update the mask according to where nans and/or infs were found.
+                v = data.mask
+                data.mask = np.empty(data.shape, bool)
+                data.mask[:] = v
             if nnan:
                 data.mask[nans] = True
             if ninf:
@@ -174,7 +183,7 @@ class NumDataType:
                     numsum['std'] = np.sqrt(numsum['var']).item() if numsum['var'] is not None and numsum['var'] >= 0 else None
         except:
             pass 
-            
+        
         return numsum
 
 class ExStateDataType:
@@ -455,38 +464,31 @@ class SumFile:
         ncfile = Dataset(self.path)
         ncvars = ncfile.variables
 
-        base_time = None
-        if 'base_time' in ncvars:
-            base_time = ncvars['base_time'][:]
-        if not base_time:
-            match = re.search('\.(\d{8}\.\d{6})\.', self.path)
-            if match:
-                datestr = match.group(1)
-                d = datetime.strptime(datestr, "%Y%m%d.%H%M%S")
-                base_time = time.mktime(d.timetuple())
-
-        if base_time is None:
-            raise RuntimeError('Cannot determine base_time: %s' % path)
-
-        sample_times = None
-        if 'time' in ncfile.dimensions and len(ncfile.dimensions['time']) > 0:
-            if 'time' in ncvars:
-                sample_times = ncvars['time'][:] + 86400*base_time//86400
-            elif 'time_offset' in ncvars:
-                sample_times = ncvars['time_offset'][:] + base_time
+        times = None
+        if 'time' in ncvars:
+            atts = ncvars['time'].__dict__
+            if 'units' in atts:
+                pattern = re.compile('^seconds since (\d{4})-(\d+)-(\d+)[\sT](\d+):(\d+):(\d+)')
+                m = pattern.match(atts['units'])
+                if m is not None:
+                    bt = time.strptime("-".join(m.groups()), "%Y-%m-%d-%H-%M-%S")
+                    bt = calendar.timegm(bt)
+                    times = bt + ncvars['time'][:]
+        if times is None and 'base_time' in ncvars and 'time_offset' in ncvars:
+            times = ncvars['base_time'][0] + ncvars['time_offset'][:]
 
         summary_times = None
-        if sample_times is None:
+        if times is None:
             logging.error('No sample time variable found for {}\n'.format(self.path))
             self.mdonly = True
         else:
             # If there are masked values in the time array then we have issues and can't go on since time
             # is a critical component here.
-            if isinstance(sample_times, np.ma.MaskedArray) and not sample_times.mask.all():
+            if isinstance(times, np.ma.MaskedArray) and not times.mask.all():
                 raise Exception("Invalid time data: %s" % self.path)
-            self.beg = sample_times[0]
-            self.end = sample_times[-1]
-            summary_times = (sample_times // self.interval).astype(int)*self.interval
+            self.beg = times[0]
+            self.end = times[-1]
+            summary_times = (times // self.interval).astype(int)*self.interval
             self.summary_times = np.unique(summary_times)
         try:
             self.dimensions = \
