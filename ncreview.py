@@ -1,4 +1,4 @@
-#!/apps/base/python3/bin/python3
+#!/usr/bin/env python3
 '''Command line interface to the datastream and datastreamdiff review modules.
 
 Provides a command line interface to the functionality inside of the
@@ -21,6 +21,7 @@ import datetime as dt
 from concurrent.futures import ProcessPoolExecutor
 
 import ncr.utils as utils
+import ncr
 from ncr.summary import SumFile
 from ncr.datastream import Datastream
 from ncr.datastreamdiff import DatastreamDiff
@@ -105,9 +106,12 @@ def main(argv):
 
     # Parse Args -------------------------------------------------------------
 
-    parser = argparse.ArgumentParser(description='Compare netCDF files between two directories or summarize from single directory',
+    parser = argparse.ArgumentParser(prog='ncreview', description='Compare netCDF files between two directories or summarize from single directory.',
                                      epilog='''Note that if --begin and --end are unspecified when comparing datastreams,
     the time span chosen will be the intersection of the time periods spanned by both datastreams.''')
+
+    parser.add_argument('--version', '-v', action='version', version='%(prog)s v' + ncr.__version__)
+
     parser.add_argument('old_dir', help='Old netCDF files directory')
 
     parser.add_argument('new_dir', nargs='?', default=None,
