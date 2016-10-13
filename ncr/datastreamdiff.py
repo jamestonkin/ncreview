@@ -492,7 +492,7 @@ class DatastreamDiff:
             else:
                 # re-order the data
                 newrow = []
-                newrow .append(row[2])          # date
+                newrow.append(row[2])          # date
                 newrow.append(row[0])           # old
                 newrow.append(row[1])           # new
                 newrow.append(row[1] - row[0])  # diff
@@ -513,15 +513,29 @@ class DatastreamDiff:
                     infs += row[4] + row2[4]
                     fills += row[5] + row2[5]
 
-            except Exception as e:
-                for ns in value.data:
-                    row = ns.old.row()
-                    row2 = ns.new.row()
-                    if len(row) != 10:
-                        break
-                    nanns += row[3] + row2[3]
-                    infs += row[4] + row2[4]
-                    fills += row[5] + row2[5]
+            except Exception as e1:
+                try:
+                    for ns in value.data:
+                        row = ns.old.row()
+                        row2 = ns.new.row()
+                        if len(row) != 10:
+                            break
+                        nanns += row[3] + row2[3]
+                        infs += row[4] + row2[4]
+                        fills += row[5] + row2[5]
+                except Exception as e2:  # TimedDataDiff object here
+                    try:
+                        row = value.data.old[0].row()
+                        row2 = value.data.new[0].row()
+                        if len(row) == 10 and len(row2) == 10:
+                            nanns += row[3] + row2[3]
+                            infs += row[4] + row2[4]
+                            fills += row[5] + row2[5]
+                    except Exception as e3:
+                        nanns = -1
+                        infs = -1
+                        fills = -1
+                        # a negetive one means that the data couldn't be read
 
         bad_data = {}
         bad_data['nanns'] = nanns
@@ -531,7 +545,6 @@ class DatastreamDiff:
         return {
             'type': 'summary',
             'different_times': different_times,
-            'random_text': 'Hey look this isn\'t data but oh well',
             'bad_data': bad_data
         }
 
