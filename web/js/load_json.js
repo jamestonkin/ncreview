@@ -20,7 +20,6 @@ function load_json(id) {
 	status_indicator.text('Loading Data...');
 	status_indicator.append('br');
 	status_indicator.append('progress');
-	console.log(id);
 	d3.json('data.php?id='+id, function(error, data) {
 		if (error) {
 			console.error(error);
@@ -29,9 +28,7 @@ function load_json(id) {
 		else {
 			status_indicator.remove();
 			datastream = data;
-			//render_sum_table(d3.select('#main'));
 			render_object(d3.select('#main'), data, data);
-			//console.log(data);
 		}
 	});
 }

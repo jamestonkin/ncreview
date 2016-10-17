@@ -487,7 +487,7 @@ class DatastreamDiff:
         different_times = []
         for row in self.dimensions['time']:
             # check if new and old values are the same
-            if row[0] == row[1]:
+            if row[0] == row[1] or row[2] == 0:
                 continue
             else:
                 # re-order the data
