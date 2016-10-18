@@ -44,6 +44,7 @@ function render_datastream_diff(parent, object) {
 
 function render_summary(parent, object) {
 	// render the summary details menu
+	if(object['bad_data']['nanns'] == -1 && object['bad_data']['infs'] == -1 && object['bad_data']['fills'] == -1){return;}
 	var details = parent.append('div');
 	/*
 	var summary = details.append('summary')
