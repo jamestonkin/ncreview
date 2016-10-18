@@ -1,7 +1,7 @@
 '''Datastream comparison classes for the ncreview tool.
 
-This module contains the classes nessecary to perform a comparison of two 
-datastreams and output the resulting comparison report to a json file which 
+This module contains the classes nessecary to perform a comparison of two
+datastreams and output the resulting comparison report to a json file which
 can be rendered by the web tool.
 
 Recurring Attributes
@@ -13,7 +13,7 @@ A dsd attribute refers back to the DatastreamDiff that contains the object.
 
 Recurring methods:
 
-Generally, a class's initializer generates the comparison data structure 
+Generally, a class's initializer generates the comparison data structure
     from params old and new as the data structures to be compared.
     These old and new params' type generally indicated by the class name,
     for example DatastreamDiff compares two Datastreams,
@@ -21,7 +21,7 @@ Generally, a class's initializer generates the comparison data structure
     the dsd parameter should take in the parent DatastreamDiff.
 
 A difference() method returns 'same', 'changed', 'added', or 'removed'
-    indicating the nature of that comparison object. These difference strings 
+    indicating the nature of that comparison object. These difference strings
     are used later in the web tool to highlight entries accordingly.
 
 A jsonify() method returns a data structure that can be converted to json
@@ -32,7 +32,7 @@ A jsonify() method returns a data structure that can be converted to json
 import os
 import sys
 import json
-from collections import namedtuple 
+from collections import namedtuple
 
 from ncr.datastream import TimedData, UntimedData
 import ncr.utils as utils
@@ -61,7 +61,7 @@ class TimelineDiff(list):
 
     @utils.store_difference
     def difference(self):
-        if not self: 
+        if not self:
             return 'same'
 
         diff = lambda d: \
@@ -131,7 +131,7 @@ class TimedDataDiff:
             'added'   if o is None else \
             'removed' if n is None else \
             'changed'
-        
+
         summary_times = self.dsd.summary_times
         sample_interval = self.dsd.sample_interval
 
@@ -140,7 +140,7 @@ class TimedDataDiff:
         # get the first difference
         def sample_diffs():
             i = 0
-            for beg, end, *_ in shared_times: 
+            for beg, end, *_ in shared_times:
                 beg = (beg//sample_interval)*sample_interval
 
                 while i < len(summary_times) and summary_times[i] < beg: i += 1
@@ -198,10 +198,10 @@ class TimedDataDiff:
         ]
         new_csv = [columns, tooltips] + \
         [
-            [t, t+self.dsd.sample_interval]+(x.row() if x is not None else [])  
+            [t, t+self.dsd.sample_interval]+(x.row() if x is not None else [])
             for t, x in zip(self.dsd.summary_times, self.new)
         ]
-        
+
         # add nones to complete any empty rows
         for csv in old_csv, new_csv:
             length = max(map(len, csv))
@@ -229,7 +229,7 @@ class UntimedDataDiff(TimelineDiff):
     def __init__(self, old, new, dsd):
         TimelineDiff.__init__(self, 'Data', old, new, dsd)
         self.data_type = new.data_type
-    
+
     def jsonify(self):
         columns, tooltips = self.data_type.columns()
 
@@ -255,7 +255,7 @@ class UntimedDataDiff(TimelineDiff):
 
             sec['difference'] = self.difference()
             return sec
-        
+
         columns = ['beg', 'end']+columns
         tooltips = ['','']+tooltips;
         old_csv = [columns, tooltips]+[[d.beg, d.end]+(d.old.row() if d.old is not None else []) for d in self]
@@ -349,7 +349,7 @@ class VariableDiff:
             self.dims.jsonify(),
             self.attributes.jsonify(),
         ]
-        
+
         if self.data:
             contents.append(self.data.jsonify())
         elif self.old_data and self.new_data:
@@ -369,7 +369,7 @@ class VariableDiff:
                     sec['dims'] = 'varying'
             else:
                 sec['dims'] = self.dims[0].val
-        else: 
+        else:
             sec['dims'] = 'varying'
         return sec
 
@@ -380,8 +380,8 @@ class NCDictDiff(dict):
     '''
     def __init__(self, name, old, new, dsd, constructor):
         super(NCDictDiff, self).__init__(self)
-        self.name = name    
-        self.dsd = dsd  
+        self.name = name
+        self.dsd = dsd
         for name in set(old.keys())|set(new.keys()):
             if name in old and name in new:
                 self[name] = constructor(name, old[name], new[name], dsd)
@@ -391,7 +391,7 @@ class NCDictDiff(dict):
             elif name in new:
                 self[name] = new[name]
                 setattr(self[name], '_difference', 'added')
-            
+
 
     @utils.store_difference
     def difference(self):
@@ -403,10 +403,10 @@ class NCDictDiff(dict):
             'same'
 
         first = get_difference(next(iter(self.values())))
-    
+
         if all(get_difference(d) == first for d in self.values()):
             return first
-        
+
         return 'changed'
 
     def jsonify(self):
@@ -416,7 +416,7 @@ class NCDictDiff(dict):
             'changed' : 0,
             'added'   : 0,
             'removed' : 0
-        }           
+        }
 
         for val in self.values():
             diff = val.difference() if hasattr(val, 'difference') else \
@@ -438,7 +438,7 @@ class TimelineDictDiff(NCDictDiff):
 class VariableDictDiff(NCDictDiff):
     def __init__(self, name, old, new, dsd):
         NCDictDiff.__init__(self, name, old, new, dsd, VariableDiff)
-        
+
 ### Datastream --------------------------------------------------------------------------------------------------------
 
 def ftime_difference(old_ftimes, new_ftimes):
@@ -487,7 +487,7 @@ class DatastreamDiff:
         different_times = []
         for row in self.dimensions['time']:
             # check if new and old values are the same
-            if row[0] == row[1] or row[2] == 0:
+            if row[0] == row[1] or row[0] == 0 or row[1] == 0 or row[2] == 0:
                 continue
             else:
                 # re-order the data
@@ -541,7 +541,7 @@ class DatastreamDiff:
         bad_data['nanns'] = nanns
         bad_data['infs'] =  infs
         bad_data['fills'] = fills
-        
+
         return {
             'type': 'summary',
             'different_times': different_times,
@@ -558,7 +558,7 @@ class DatastreamDiff:
             'sample_interval': self.sample_interval,
             'summary_times': self.summary_times,
             'contents': [
-                {  
+                {
                     'type': 'section',
                     'name': 'File Timeline',
                     'difference': ftime_difference(self.old_file_times, self.new_file_times),
