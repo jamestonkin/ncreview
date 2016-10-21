@@ -523,11 +523,12 @@ class DatastreamDiff:
         fills = 0 
 
         for key, value in self.variables.items():
-            a, b, c, d = value.get_nifs()
-            nmiss += a
-            nanns += b
-            infs  += c
-            fills += d
+            if value is VariableDiff:
+                a, b, c, d = value.get_nifs()
+                nmiss += a
+                nanns += b
+                infs  += c
+                fills += d
 
         bad_data = {}
         bad_data['nmiss'] = nmiss
