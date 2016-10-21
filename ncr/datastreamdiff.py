@@ -506,7 +506,7 @@ class DatastreamDiff:
         different_times = []
         for row in self.dimensions['time']:
             # check if new and old values are the same
-            if row[0] == row[1] or row[0] == 0 or row[1] == 0 or row[2] == 0:
+            if row[0] == row[1] or len(row) != 4:
                 continue
             else:
                 # re-order the data
@@ -534,9 +534,6 @@ class DatastreamDiff:
         bad_data['nanns'] = nanns
         bad_data['infs'] =  infs
         bad_data['fills'] = fills
-
-        for key in bad_data:
-            print(key, bad_data[key])
 
         return {
             'type': 'summary',
