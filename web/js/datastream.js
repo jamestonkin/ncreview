@@ -44,26 +44,20 @@ function render_datastream_diff(parent, object) {
 
 function render_summary(parent, object) {
 	// render the summary details menu
-		if(!(object['bad_data']['nanns'] == -1 && object['bad_data']['infs'] == -1 && object['bad_data']['fills'] == -1)){
-			var details = parent.append('div');
-			/*
-			var summary = details.append('summary')
-				.append('b')
-				.text('Summary');
-			*/
+		
+		var details = parent.append('div');
+		
+		details = details.append('div')
+			.style('padding-left', '1.25em');
 
-			details = details.append('div')
-				.style('padding-left', '1.25em');
+		if(object['bad_data'].length != 0) {
+			var par = details.append('p').text('Bad Data');
+			var table = details.append('table').attr('id', 'bad_data');
 
-			if(object['bad_data'] != []) {
-				var par = details.append('p').text('Bad Data');
-				var table = details.append('table').attr('id', 'bad_data');
-
-			for(let key of ['nanns', 'infs', 'fills']) {
-				var tr = table.append('tr');
-				tr.append('th').text(key).style('color', object['bad_data'][key] != 0 ? '#22b' : null);
-				tr.append('td').text(object['bad_data'][key]);
-			}
+		for(let key of ['nmiss', 'nanns', 'infs', 'fills']) {
+			var tr = table.append('tr');
+			tr.append('th').text(key).style('color', object['bad_data'][key] != 0 ? '#22b' : null);
+			tr.append('td').text(object['bad_data'][key]);
 		}
 	}
 

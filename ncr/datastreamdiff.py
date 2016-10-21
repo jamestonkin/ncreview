@@ -34,7 +34,7 @@ import sys
 import json
 from collections import namedtuple
 
-from ncr.datastream import TimedData, UntimedData
+from ncr.datastream import TimedData, UntimedData, NumSum
 import ncr.utils as utils
 
 ### Timeline ----------------------------------------------------------------------------------------------------------
@@ -121,6 +121,21 @@ class TimedDataDiff:
         self.old = [old.data[t] if t in old.data else None for t in dsd.summary_times]
         self.new = [new.data[t] if t in new.data else None for t in dsd.summary_times]
 
+    def get_nifs(self):
+        #  adds up totals for both old a new, returns the sum as a tuple
+        nmiss = 0
+        nnans = 0
+        ninfs = 0
+        nfill = 0
+        for old_ns, new_ns in zip(self.old, self.new):
+            a = old_ns.get_nifs()
+            b = new_ns.get_nifs()
+            nmiss += a[0] + b[0]
+            nnans += a[1] + b[1]
+            ninfs += a[2] + b[2]
+            nfill += a[3] + b[3]
+        return (nmiss, nnans, ninfs, nfill)
+
     @utils.store_difference
     def difference(self):
         if not self.old and not self.new:
@@ -136,7 +151,6 @@ class TimedDataDiff:
         sample_interval = self.dsd.sample_interval
 
         shared_times = list(utils.shared_times(self.dsd.old_file_times, self.dsd.new_file_times))
-
         # get the first difference
         def sample_diffs():
             i = 0
@@ -343,6 +357,11 @@ class VariableDiff:
         else:
             return 'changed'
 
+    def get_nifs(self):
+        if type(self.data) is TimedDataDiff:
+            return self.data.get_nifs()
+        return (0, 0, 0, 0)
+
     def jsonify(self):
         contents = [
             self.dtype.jsonify(),
@@ -498,49 +517,26 @@ class DatastreamDiff:
                 newrow.append(row[1] - row[0])  # diff
                 different_times.append(newrow)
 
-        nanns = 0   # index 3
-        infs = 0    # index 4
-        fills = 0   # index 5
+        nmiss = 0
+        nanns = 0 
+        infs = 0   
+        fills = 0 
 
         for key, value in self.variables.items():
-            try:
-                for ns, ns2 in zip(value.data.old, value.data.new): # all data is the same length (10)
-                    row = ns.row()
-                    row2 = ns2.row()
-                    if len(row) != 10:  # all rows are the same size in the tables
-                        break           # if they're not 10 in length, they're not the data we're looking for
-                    nanns += row[3] + row2[3]
-                    infs += row[4] + row2[4]
-                    fills += row[5] + row2[5]
-
-            except Exception as e1:
-                try:
-                    for ns in value.data:
-                        row = ns.old.row()
-                        row2 = ns.new.row()
-                        if len(row) != 10:
-                            break
-                        nanns += row[3] + row2[3]
-                        infs += row[4] + row2[4]
-                        fills += row[5] + row2[5]
-                except Exception as e2:  # TimedDataDiff object here
-                    try:
-                        row = value.data.old[0].row()
-                        row2 = value.data.new[0].row()
-                        if len(row) == 10 and len(row2) == 10:
-                            nanns += row[3] + row2[3]
-                            infs += row[4] + row2[4]
-                            fills += row[5] + row2[5]
-                    except Exception as e3:
-                        nanns = -1
-                        infs = -1
-                        fills = -1
-                        # a negetive one means that the data couldn't be read
+            a, b, c, d = value.get_nifs()
+            nmiss += a
+            nanns += b
+            infs  += c
+            fills += d
 
         bad_data = {}
+        bad_data['nmiss'] = nmiss
         bad_data['nanns'] = nanns
         bad_data['infs'] =  infs
         bad_data['fills'] = fills
+
+        for key in bad_data:
+            print(key, bad_data[key])
 
         return {
             'type': 'summary',

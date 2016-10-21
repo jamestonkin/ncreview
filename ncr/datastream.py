@@ -146,6 +146,9 @@ class NumSum:
         self.var    = var
         self.std    = std
 
+    def get_nifs(self):
+        return self.nmiss, self.nnan, self.ninf, self.nfill
+
     def __iadd__(self, other):
         s, o = self, other # for brevity
         ngood = s.ngood + o.ngood
@@ -259,6 +262,9 @@ class StateSum(list):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def get_nifs(self):
+        return (0,0,0,0)
 
     def state(self, i):
         return self._s[i]
