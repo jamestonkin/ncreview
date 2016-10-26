@@ -513,6 +513,20 @@ class TimedData:
                 self.data[time[i]] = self.data_type.summarize()
             self.data[time[i]] += s
 
+    def get_nifs(self):
+        #  adds up totals for both old a new, returns the sum as a tuple
+        nmiss = 0
+        nnans = 0
+        ninfs = 0
+        nfill = 0
+        for ns in self.old:
+            a = ns.get_nifs()
+            nmiss += a[0] 
+            nnans += a[1]
+            ninfs += a[2]
+            nfill += a[3]
+        return (nmiss, nnans, ninfs, nfill)
+
     def jsonify(self):
 
         columns, tooltips = self.data_type.columns()
@@ -627,6 +641,11 @@ class Variable:
             self.companion_names = self.companion_names | set(sumvar['companions'])
         if not self.metadata_only:
             self.data.load(sumvar)
+
+    def get_nifs(self):
+        if type(self.data) is TimedData:
+            return self.data.get_nifs()
+        return (0, 0, 0, 0)
 
     def jsonify(self):
         sec = utils.json_section(self, [
@@ -763,9 +782,28 @@ class Datastream:
         self.variables.load({v['name']:v for v in f['variables']})
 
     def summarize(self):
+        nmiss = 0
+        nanns = 0 
+        infs = 0   
+        fills = 0 
+
+        for key, value in self.variables.items():
+            if value is Variable:
+                a, b, c, d = value.get_nifs()
+                nmiss += a
+                nanns += b
+                infs  += c
+                fills += d
+
+        bad_data = {}
+        bad_data['nmiss'] = nmiss
+        bad_data['nanns'] = nanns
+        bad_data['infs'] =  infs
+        bad_data['fills'] = fills
+
         return {
-            'type': 'summary'
-            # added summarize features go here
+            'type': 'summary',
+            'bad_data': bad_data,
         }
 
     def jsonify(self):
