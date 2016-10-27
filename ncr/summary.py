@@ -294,7 +294,11 @@ class InStateDataType:
         if data is None:
             return {str(m): 0 for m in self.flag_masks}
 
-        return {str(m): np.sum(data&m).item() for m in self.flag_masks}
+        d = data.astype(int)
+        if hasattr(d, 'mask'):
+            d = d.compressed()
+
+        return {str(m): np.sum(d&m > 0).item() for m in self.flag_masks}
 
 class QCDataType(InStateDataType):
     '''Class containing methods for working with Quality control data
