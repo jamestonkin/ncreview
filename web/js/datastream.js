@@ -45,14 +45,14 @@ function render_datastream_diff(parent, object) {
 function render_summary(parent, object) {
 	// render the summary details menu
 		
-		var details = parent.append('div');
-		
-		details = details.append('div')
-			.style('padding-left', '1.25em');
+	var details = parent.append('div');
+	
+	details = details.append('div')
+		.style('padding-left', '1.25em');
 
-		if(object['bad_data'].length != 0) {
-			var par = details.append('p').text('Bad Data');
-			var table = details.append('table').attr('id', 'bad_data');
+	if(object['bad_data'].length != 0) {
+		var par = details.append('p').text('Bad Data');
+		var table = details.append('table').attr('id', 'bad_data');
 
 		for(let key of ['nmiss', 'nanns', 'infs', 'fills']) {
 			var tr = table.append('tr');
@@ -62,9 +62,9 @@ function render_summary(parent, object) {
 	}
 
 	if(object['different_times'].length != 0){
+		var par = details.append('p').text('Changes is Dimensions-time');
+
 		var table = details.append('table');
-		var caption = table.append('caption')
-			.text('Changes in Dimensions-time');
 		// note that we can read data from object['ranodm_text']
 		var tr = table.append('tr');
 		tr.append('th').text('Date');
@@ -83,7 +83,7 @@ function render_summary(parent, object) {
 			tr2.append('td').text(String(epoch2utc(date)).substring(4, 15));
 			tr2.append('td').text(old);
 			tr2.append('td').text(_new);
-			tr2.append('td').text(diff);
+			tr2.append('td').text(diff).style('color', diff > 0 ? '#00642e' : 'b30006');
 		}
 	}
 }

@@ -523,7 +523,7 @@ class DatastreamDiff:
         fills = 0 
 
         for key, value in self.variables.items():
-            if value is VariableDiff:
+            if type(value) is VariableDiff:
                 a, b, c, d = value.get_nifs()
                 nmiss += a
                 nanns += b

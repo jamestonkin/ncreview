@@ -519,7 +519,7 @@ class TimedData:
         nnans = 0
         ninfs = 0
         nfill = 0
-        for ns in self.old:
+        for ns in self.data.values():
             a = ns.get_nifs()
             nmiss += a[0] 
             nnans += a[1]
@@ -788,8 +788,9 @@ class Datastream:
         fills = 0 
 
         for key, value in self.variables.items():
-            if value is Variable:
+            if type(value) is Variable:
                 a, b, c, d = value.get_nifs()
+                print(a, b, c, d)
                 nmiss += a
                 nanns += b
                 infs  += c
