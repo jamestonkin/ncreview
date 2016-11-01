@@ -128,8 +128,8 @@ class TimedDataDiff:
         ninfs = 0
         nfill = 0
         for old_ns, new_ns in zip(self.old, self.new):
-            a = old_ns.get_nifs()
-            b = new_ns.get_nifs()
+            a = (0, 0, 0, 0) if old_ns is None else old_ns.get_nifs()
+            b = (0, 0, 0, 0) if new_ns is None else new_ns.get_nifs()
             nmiss += a[0] + b[0]
             nnans += a[1] + b[1]
             ninfs += a[2] + b[2]

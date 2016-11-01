@@ -520,7 +520,7 @@ class TimedData:
         ninfs = 0
         nfill = 0
         for ns in self.data.values():
-            a = ns.get_nifs()
+            a = (0, 0, 0, 0) if ns is None else ns.get_nifs()
             nmiss += a[0] 
             nnans += a[1]
             ninfs += a[2]
