@@ -790,7 +790,6 @@ class Datastream:
         for key, value in self.variables.items():
             if type(value) is Variable:
                 a, b, c, d = value.get_nifs()
-                print(a, b, c, d)
                 nmiss += a
                 nanns += b
                 infs  += c
