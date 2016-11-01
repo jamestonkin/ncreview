@@ -44,33 +44,33 @@ function render_datastream_diff(parent, object) {
 
 function render_summary(parent, object) {
 	// render the summary details menu
-		
 	var details = parent.append('div');
+	details.append('h1').text('Summary').style('color', '#ff6600');
 	
 	details = details.append('div')
-		.style('padding-left', '1.25em');
+		//.style('padding-left', '1.25em')
+		.style('border-top', '1px solid black');
 
 	if(object['bad_data'].length != 0) {
-		var par = details.append('p').text('Bad Data');
+		var par = details.append('p').text('Bad Data. The sums of each old/new column in each chart in Variables.');
 		var table = details.append('table').attr('id', 'bad_data');
 
 		for(let key of ['nmiss', 'nanns', 'infs', 'fills']) {
 			var tr = table.append('tr');
-			tr.append('th').text(key).style('color', object['bad_data'][key] != 0 ? '#22b' : null);
+			tr.append('th').text(key).style('color', object['bad_data'][key] > 0 ? '#22b' : null).style('text-align', 'right');
 			tr.append('td').text(object['bad_data'][key]);
 		}
 	}
 
 	if(object['different_times'].length != 0){
-		var par = details.append('p').text('Changes is Dimensions-time');
+		var par = details.append('p').text('Changes in Dimensions-time. The hard-to-see blue lines in the timeline.');
 
 		var table = details.append('table');
-		// note that we can read data from object['ranodm_text']
 		var tr = table.append('tr');
-		tr.append('th').text('Date');
-		tr.append('th').text('Old');
-		tr.append('th').text('New');
-		tr.append('th').text('Diff');
+		tr.append('th').text('Date').style('text-align', 'left');
+		tr.append('th').text('Old').style('text-align', 'right');
+		tr.append('th').text('New').style('text-align', 'right');
+		tr.append('th').text('Diff').style('text-align', 'right');
 
 		for (var i in object['different_times']) {
 			var arr = object['different_times'][i];
@@ -81,9 +81,9 @@ function render_summary(parent, object) {
 
 			var tr2 = table.append('tr');
 			tr2.append('td').text(String(epoch2utc(date)).substring(4, 15));
-			tr2.append('td').text(old);
-			tr2.append('td').text(_new);
-			tr2.append('td').text(diff).style('color', diff > 0 ? '#00642e' : 'b30006');
+			tr2.append('td').text(old).style('text-align', 'right');
+			tr2.append('td').text(_new).style('text-align', 'right');
+			tr2.append('td').text(diff).style('color', diff > 0 ? '#00642e' : 'b30006').style('text-align', 'right');
 		}
 	}
 }
