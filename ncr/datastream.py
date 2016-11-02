@@ -110,6 +110,38 @@ class DimlessSum:
     def row(self):
         return [self.val]
 
+    def get_nifs(self):
+        '''nmiss, nfill = 0, 0
+        data = np.array(self.row())
+    
+
+        size = int(data.size)
+
+        if hasattr(data, 'mask'):
+            masked = data[data.mask].data
+            nfill = int(np.size(masked))
+            if self.missing_value is not None:
+                nmiss = int(np.sum(masked == self.missing_value))
+            if self.fill_value is not None:
+                nfill = int(np.sum(masked == self.fill_value))
+            elif nfill > 0:
+                nfill -= nmiss
+                        
+            try:
+                nans = np.where(np.isnan(data)) 
+                nnan = int(nans[0].size)
+            except TypeError:
+                nnan = 0
+    
+            try:
+                infs = np.where(np.isinf(data))
+                ninf = int(infs[0].size)
+            except TypeError:
+                ninf = 0'''
+
+
+        return (0, 0, 0, 0)
+
 class NumSum:
     '''Summary of the values in a variable holding numerical data.
 
@@ -577,6 +609,25 @@ class UntimedData(Timeline):
         summ = self.data_type.summarize(sumvar['data'])
         Timeline.load(self, summ)
 
+    def get_nifs(self):
+
+        nmiss = 0
+        nnans = 0
+        ninfs = 0
+        nfill = 0
+
+        print('called')
+
+        for i in self:
+            print(type(i), i, i.val.row())
+            a = (0, 0, 0, 0) if i.val is None else i.val.get_nifs()
+            nmiss += a[0]
+            nnans += a[1]
+            ninfs += a[2]
+            nfill += a[3]
+        
+        return (nmiss, nnans, ninfs, nfill)
+
     def jsonify(self):
 
         columns, tooltips = self.data_type.columns()
@@ -643,9 +694,7 @@ class Variable:
             self.data.load(sumvar)
 
     def get_nifs(self):
-        if type(self.data) is TimedData:
-            return self.data.get_nifs()
-        return (0, 0, 0, 0)
+        return self.data.get_nifs()
 
     def jsonify(self):
         sec = utils.json_section(self, [

@@ -52,7 +52,18 @@ function render_summary(parent, object) {
 		.style('border-top', '1px solid black');
 
 	if(object['bad_data'].length != 0) {
-		var par = details.append('p').text('Bad Data. The sums of each old/new column in each chart in Variables.');
+		var par = details.append('p').text('Old Bad Data. The sums of each old column in each chart in Variables.');
+		var table = details.append('table').attr('id', 'bad_data');
+
+		for(let key of ['nmiss', 'nanns', 'infs', 'fills']) {
+			var tr = table.append('tr');
+			tr.append('th').text(key).style('color', object['bad_data'][key] > 0 ? '#22b' : null).style('text-align', 'right');
+			tr.append('td').text(object['bad_data'][key]);
+		}
+	}
+
+	if(object['bad_data2'].length != 0) {
+		var par = details.append('p').text('New Bad Data. The sums of each new column in each chart in Variables.');
 		var table = details.append('table').attr('id', 'bad_data');
 
 		for(let key of ['nmiss', 'nanns', 'infs', 'fills']) {
