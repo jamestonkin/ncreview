@@ -616,10 +616,7 @@ class UntimedData(Timeline):
         ninfs = 0
         nfill = 0
 
-        print('called')
-
         for i in self:
-            print(type(i), i, i.val.row())
             a = (0, 0, 0, 0) if i.val is None else i.val.get_nifs()
             nmiss += a[0]
             nnans += a[1]
@@ -836,6 +833,11 @@ class Datastream:
         infs = 0   
         fills = 0 
 
+        #print("----\tOLD\tDATA\t----\t----")
+        #print("miss\tnans\tinfs\tfill\tNAME")
+
+        data = {}
+
         for key, value in self.variables.items():
             if type(value) is Variable:
                 a, b, c, d = value.get_nifs()
@@ -844,6 +846,17 @@ class Datastream:
                 infs  += c
                 fills += d
 
+                if a >0 or b>0 or c>0 or d>0 :
+                    data[value.name] = (a,b,c,d);
+                    '''
+                    for x in (a,b,c,d, value.name):
+                        print(x, end='\t')
+                    print()'''
+
+
+        data['Header'] = ('Variable','miss', 'nans', 'infs', 'fill')
+        data['Total'] = (nmiss, nanns, infs, fills)
+        
         bad_data = {}
         bad_data['nmiss'] = nmiss
         bad_data['nanns'] = nanns
@@ -853,6 +866,7 @@ class Datastream:
         return {
             'type': 'summary',
             'bad_data': bad_data,
+            'data': data,
         }
 
     def jsonify(self):

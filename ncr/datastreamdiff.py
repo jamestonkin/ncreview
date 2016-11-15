@@ -538,12 +538,13 @@ class DatastreamDiff:
                 newrow.append(row[1] - row[0])  # diff
                 different_times.append(newrow)
 
-        nmiss = 0
-        nanns = 0 
-        infs = 0   
-        fills = 0 
-
+        nmiss, nanns, infs, fills = 0, 0, 0, 0
         nmiss2, nanns2, infs2, fills2 = 0, 0, 0, 0
+
+        '''print('----\tOLD\tDATA\t----\t----\tNEW\tDATA\t----\t----')
+        print('nmiss\tnann\tinfs\tfill\tnmiss\tnann\tinfs\tfill\tNAME')'''
+
+        data = {}
 
         for key, value in self.variables.items():
             if type(value) is VariableDiff:
@@ -556,6 +557,16 @@ class DatastreamDiff:
                 nanns2 += f
                 infs2  += g
                 fills2 += h
+
+                if a >0 or b>0 or c>0 or d>0 or e>0 or f>0 or g>0 or h>0:
+                    data[value.name] = (a,b,c,d,'',e,f,g,h)
+                    '''for x in (a,b,c,d,e,f,g,h,value.name):
+                        print(x, end='\t')
+                    print()'''
+
+        # the '' breaks in these tuples are intentional: they give space to their respective tables
+        data['Header'] = ('Variable','miss', 'nans', 'infs', 'fill', '', 'miss', 'nans', 'infs', 'fill')
+        data['Total'] = (nmiss, nanns, infs, fills, '',nmiss2, nanns2, infs2, fills2)            
 
         bad_data = {}
         bad_data['nmiss'] = nmiss
@@ -573,7 +584,8 @@ class DatastreamDiff:
             'type': 'summary',
             'different_times': different_times,
             'bad_data': bad_data,
-            'bad_data2': bad_data2
+            'bad_data2': bad_data2,
+            'data': data,
         }
 
     def jsonify(self):

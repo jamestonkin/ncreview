@@ -38,7 +38,6 @@ function render_object(parent, object) {
     if (!render.hasOwnProperty(object.type)) {
         throw new Error('Unrecognized object type: '+object.type);
     }
-    console.log(object);
     render[object.type](parent, object);
 }
 
