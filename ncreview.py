@@ -139,15 +139,7 @@ def main(argv):
     parser.add_argument('--readers', type=int, default=10,
                         help='Specify number of concurrent file readers.  Will accept a number between %d and %d (inclusive).' % (min_readers, max_readers))
 
-    # edit
-    parser.add_argument('--dev', action='store_true',
-                        help='For running on a local host, dev. only')
-
     args = parser.parse_args()
-
-    # edit
-    global DEVELOPMENT
-    DEVELOPMENT = args.dev
 
         # Get absolute directory paths...
         # This will be important for the webpage to know where the datastreams
@@ -400,9 +392,6 @@ def main(argv):
     print('https://engineering.arm.gov' +
           location + '/ncreview/?' + url_string)
     print("")
-
-    if DEVELOPMENT:
-        print('DEVELOPMENT LINK: \n' + 'localhost/web/index.html?' + url_string + '\n\n')
 
     return 0
 

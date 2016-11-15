@@ -123,18 +123,22 @@ class TimedDataDiff:
 
     def get_nifs(self):
         #  adds up totals for both old a new, returns the sum as a tuple
-        nmiss = 0
-        nnans = 0
-        ninfs = 0
-        nfill = 0
+        nmiss, nnans, ninfs, nfill = 0, 0, 0, 0
+        nmiss2, nnans2, ninfs2, nfill2 = 0, 0, 0, 0
+        
         for old_ns, new_ns in zip(self.old, self.new):
-            a = old_ns.get_nifs()
-            b = new_ns.get_nifs()
-            nmiss += a[0] + b[0]
-            nnans += a[1] + b[1]
-            ninfs += a[2] + b[2]
-            nfill += a[3] + b[3]
-        return (nmiss, nnans, ninfs, nfill)
+            a = (0, 0, 0, 0) if old_ns is None else old_ns.get_nifs()
+            b = (0, 0, 0, 0) if new_ns is None else new_ns.get_nifs()
+            nmiss += a[0]
+            nnans += a[1]
+            ninfs += a[2]
+            nfill += a[3] 
+            nmiss2 += b[0]
+            nnans2 += b[1]
+            ninfs2 += b[2]
+            nfill2 += b[3] 
+
+        return (nmiss, nnans, ninfs, nfill, nmiss2, nnans2, ninfs2, nfill2)
 
     @utils.store_difference
     def difference(self):
@@ -243,6 +247,25 @@ class UntimedDataDiff(TimelineDiff):
     def __init__(self, old, new, dsd):
         TimelineDiff.__init__(self, 'Data', old, new, dsd)
         self.data_type = new.data_type
+
+    def get_nifs(self):
+        #  adds up totals for both old a new, returns the sum as a tuple
+        nmiss, nnans, ninfs, nfill = 0, 0, 0, 0
+        nmiss2, nnans2, ninfs2, nfill2 = 0, 0, 0, 0
+
+        for i in self:
+            a = (0, 0, 0, 0) if i.old is None else i.old.get_nifs()
+            b = (0, 0, 0, 0) if i.new is None else i.new.get_nifs()
+            nmiss += a[0]
+            nnans += a[1]
+            ninfs += a[2]
+            nfill += a[3] 
+            nmiss2 += b[0]
+            nnans2 += b[1]
+            ninfs2 += b[2]
+            nfill2 += b[3] 
+
+        return (nmiss, nnans, ninfs, nfill, nmiss2, nnans2, ninfs2, nfill2)
 
     def jsonify(self):
         columns, tooltips = self.data_type.columns()
@@ -358,9 +381,7 @@ class VariableDiff:
             return 'changed'
 
     def get_nifs(self):
-        if type(self.data) is TimedDataDiff:
-            return self.data.get_nifs()
-        return (0, 0, 0, 0)
+        return self.data.get_nifs()
 
     def jsonify(self):
         contents = [
@@ -506,7 +527,7 @@ class DatastreamDiff:
         different_times = []
         for row in self.dimensions['time']:
             # check if new and old values are the same
-            if row[0] == row[1] or row[0] == 0 or row[1] == 0 or row[2] == 0:
+            if row[0] == row[1] or len(row) != 4:
                 continue
             else:
                 # re-order the data
@@ -517,17 +538,35 @@ class DatastreamDiff:
                 newrow.append(row[1] - row[0])  # diff
                 different_times.append(newrow)
 
-        nmiss = 0
-        nanns = 0 
-        infs = 0   
-        fills = 0 
+        nmiss, nanns, infs, fills = 0, 0, 0, 0
+        nmiss2, nanns2, infs2, fills2 = 0, 0, 0, 0
+
+        '''print('----\tOLD\tDATA\t----\t----\tNEW\tDATA\t----\t----')
+        print('nmiss\tnann\tinfs\tfill\tnmiss\tnann\tinfs\tfill\tNAME')'''
+
+        data = {}
 
         for key, value in self.variables.items():
-            a, b, c, d = value.get_nifs()
-            nmiss += a
-            nanns += b
-            infs  += c
-            fills += d
+            if type(value) is VariableDiff:
+                a, b, c, d, e, f, g, h = value.get_nifs()
+                nmiss += a
+                nanns += b
+                infs  += c
+                fills += d
+                nmiss2 += e
+                nanns2 += f
+                infs2  += g
+                fills2 += h
+
+                if a >0 or b>0 or c>0 or d>0 or e>0 or f>0 or g>0 or h>0:
+                    data[value.name] = (a,b,c,d,'',e,f,g,h)
+                    '''for x in (a,b,c,d,e,f,g,h,value.name):
+                        print(x, end='\t')
+                    print()'''
+
+        # the '' breaks in these tuples are intentional: they give space to their respective tables
+        data['Header'] = ('Variable','miss', 'nans', 'infs', 'fill', '', 'miss', 'nans', 'infs', 'fill')
+        data['Total'] = (nmiss, nanns, infs, fills, '',nmiss2, nanns2, infs2, fills2)            
 
         bad_data = {}
         bad_data['nmiss'] = nmiss
@@ -535,13 +574,18 @@ class DatastreamDiff:
         bad_data['infs'] =  infs
         bad_data['fills'] = fills
 
-        for key in bad_data:
-            print(key, bad_data[key])
+        bad_data2 = {}
+        bad_data2['nmiss'] = nmiss2
+        bad_data2['nanns'] = nanns2
+        bad_data2['infs'] =  infs2
+        bad_data2['fills'] = fills2
 
         return {
             'type': 'summary',
             'different_times': different_times,
-            'bad_data': bad_data
+            'bad_data': bad_data,
+            'bad_data2': bad_data2,
+            'data': data,
         }
 
     def jsonify(self):

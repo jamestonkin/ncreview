@@ -183,7 +183,7 @@ class NumDataType:
                     numsum['std'] = np.sqrt(numsum['var']).item() if numsum['var'] is not None and numsum['var'] >= 0 else None
         except:
             pass 
-        
+
         return numsum
 
 class ExStateDataType:

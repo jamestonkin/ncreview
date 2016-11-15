@@ -82,14 +82,18 @@ th {
 	padding: 0px 10px;
 }
 
-th.changed {
+th.changed, td.changed {
 	color:#22b;
 }
-th.added {
+th.added, td.added {
 	color:#2b2;
 }
-th.removed {
+th.removed, td.removed {
 	color:#b22;
+}
+
+th.same, td.same {
+	color:#000;
 }
 
 .right {

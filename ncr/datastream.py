@@ -110,6 +110,38 @@ class DimlessSum:
     def row(self):
         return [self.val]
 
+    def get_nifs(self):
+        '''nmiss, nfill = 0, 0
+        data = np.array(self.row())
+    
+
+        size = int(data.size)
+
+        if hasattr(data, 'mask'):
+            masked = data[data.mask].data
+            nfill = int(np.size(masked))
+            if self.missing_value is not None:
+                nmiss = int(np.sum(masked == self.missing_value))
+            if self.fill_value is not None:
+                nfill = int(np.sum(masked == self.fill_value))
+            elif nfill > 0:
+                nfill -= nmiss
+                        
+            try:
+                nans = np.where(np.isnan(data)) 
+                nnan = int(nans[0].size)
+            except TypeError:
+                nnan = 0
+    
+            try:
+                infs = np.where(np.isinf(data))
+                ninf = int(infs[0].size)
+            except TypeError:
+                ninf = 0'''
+
+
+        return (0, 0, 0, 0)
+
 class NumSum:
     '''Summary of the values in a variable holding numerical data.
 
@@ -513,6 +545,20 @@ class TimedData:
                 self.data[time[i]] = self.data_type.summarize()
             self.data[time[i]] += s
 
+    def get_nifs(self):
+        #  adds up totals for both old a new, returns the sum as a tuple
+        nmiss = 0
+        nnans = 0
+        ninfs = 0
+        nfill = 0
+        for ns in self.data.values():
+            a = (0, 0, 0, 0) if ns is None else ns.get_nifs()
+            nmiss += a[0] 
+            nnans += a[1]
+            ninfs += a[2]
+            nfill += a[3]
+        return (nmiss, nnans, ninfs, nfill)
+
     def jsonify(self):
 
         columns, tooltips = self.data_type.columns()
@@ -562,6 +608,22 @@ class UntimedData(Timeline):
     def load(self, sumvar):
         summ = self.data_type.summarize(sumvar['data'])
         Timeline.load(self, summ)
+
+    def get_nifs(self):
+
+        nmiss = 0
+        nnans = 0
+        ninfs = 0
+        nfill = 0
+
+        for i in self:
+            a = (0, 0, 0, 0) if i.val is None else i.val.get_nifs()
+            nmiss += a[0]
+            nnans += a[1]
+            ninfs += a[2]
+            nfill += a[3]
+        
+        return (nmiss, nnans, ninfs, nfill)
 
     def jsonify(self):
 
@@ -627,6 +689,9 @@ class Variable:
             self.companion_names = self.companion_names | set(sumvar['companions'])
         if not self.metadata_only:
             self.data.load(sumvar)
+
+    def get_nifs(self):
+        return self.data.get_nifs()
 
     def jsonify(self):
         sec = utils.json_section(self, [
@@ -763,9 +828,45 @@ class Datastream:
         self.variables.load({v['name']:v for v in f['variables']})
 
     def summarize(self):
+        nmiss = 0
+        nanns = 0 
+        infs = 0   
+        fills = 0 
+
+        #print("----\tOLD\tDATA\t----\t----")
+        #print("miss\tnans\tinfs\tfill\tNAME")
+
+        data = {}
+
+        for key, value in self.variables.items():
+            if type(value) is Variable:
+                a, b, c, d = value.get_nifs()
+                nmiss += a
+                nanns += b
+                infs  += c
+                fills += d
+
+                if a >0 or b>0 or c>0 or d>0 :
+                    data[value.name] = (a,b,c,d);
+                    '''
+                    for x in (a,b,c,d, value.name):
+                        print(x, end='\t')
+                    print()'''
+
+
+        data['Header'] = ('Variable','miss', 'nans', 'infs', 'fill')
+        data['Total'] = (nmiss, nanns, infs, fills)
+        
+        bad_data = {}
+        bad_data['nmiss'] = nmiss
+        bad_data['nanns'] = nanns
+        bad_data['infs'] =  infs
+        bad_data['fills'] = fills
+
         return {
-            'type': 'summary'
-            # added summarize features go here
+            'type': 'summary',
+            'bad_data': bad_data,
+            'data': data,
         }
 
     def jsonify(self):
