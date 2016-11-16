@@ -44,10 +44,10 @@ function render_datastream_diff(parent, object) {
 
 function render_summary(parent, object) {
 
-	if (Object.keys(object['bad_data']).length === 0 && Object.keys(object['data']).length === 0) {
+	if (Object.keys(object['bad_data']).length === 0 || Object.keys(object['data']).length === 0) {
 		return;
 	}
-	
+
 	var main_div = parent.append('div');
 	main_div.append('h1').text('Summary').style('color', '#ff6600');
 	
@@ -66,18 +66,18 @@ function render_summary(parent, object) {
 		}
 	}
 
-	if(Object.keys(object['bad_data2']).length != 0) {
-		var par = div.append('p').text('New Bad Data. The sums of each new column of each chart in Variables.');
-		var table = div.append('table').attr('id', 'bad_data');
+	if(Boolean(object['bad_data2'])) {
+		if(Object.keys(object['bad_data2']).length != 0) {
+			var par = div.append('p').text('New Bad Data. The sums of each new column of each chart in Variables.');
+			var table = div.append('table').attr('id', 'bad_data');
 
-		for(let key of ['nmiss', 'nanns', 'infs', 'fills']) {
-			var tr = table.append('tr');
-			tr.append('th').text(key).style('color', object['bad_data2'][key] > 0 ? '#22b' : null).style('text-align', 'right');
-			tr.append('td').text(object['bad_data2'][key]);
+			for(let key of ['nmiss', 'nanns', 'infs', 'fills']) {
+				var tr = table.append('tr');
+				tr.append('th').text(key).style('color', object['bad_data2'][key] > 0 ? '#22b' : null).style('text-align', 'right');
+				tr.append('td').text(object['bad_data2'][key]);
+			}
 		}
 	}
-
-	
 
 	if(Object.keys(object['data']).length != 0) {
 
@@ -182,28 +182,30 @@ function render_summary(parent, object) {
 		
 	}
 
-	if(Object.keys(object['different_times']).length != 0){
-		var par = div.append('p').text('Changes in Dimensions-time. The hard-to-see blue lines in the timeline.');
+	if(Boolean(object['different_times'])){
+		if(Object.keys(object['different_times']).length != 0){
+			var par = div.append('p').text('Changes in Dimensions-time. The hard-to-see blue lines in the timeline.');
 
-		var table = div.append('table');
-		var tr = table.append('tr');
-		tr.append('th').text('Date').style('text-align', 'left');
-		tr.append('th').text('Old').style('text-align', 'right');
-		tr.append('th').text('New').style('text-align', 'right');
-		tr.append('th').text('Diff').style('text-align', 'right');
+			var table = div.append('table');
+			var tr = table.append('tr');
+			tr.append('th').text('Date').style('text-align', 'left');
+			tr.append('th').text('Old').style('text-align', 'right');
+			tr.append('th').text('New').style('text-align', 'right');
+			tr.append('th').text('Diff').style('text-align', 'right');
 
-		for (var i in object['different_times']) {
-			var arr = object['different_times'][i];
-			var date = arr[0];
-			var old = arr[1];
-			var _new = arr[2];
-			var diff = arr[3];
+			for (var i in object['different_times']) {
+				var arr = object['different_times'][i];
+				var date = arr[0];
+				var old = arr[1];
+				var _new = arr[2];
+				var diff = arr[3];
 
-			var tr2 = table.append('tr');
-			tr2.append('td').text(String(epoch2utc(date)).substring(4, 15));
-			tr2.append('td').text(old).style('text-align', 'right');
-			tr2.append('td').text(_new).style('text-align', 'right');
-			tr2.append('td').text(diff).style('color', diff > 0 ? '00642e' : 'b30006').style('text-align', 'right');
+				var tr2 = table.append('tr');
+				tr2.append('td').text(String(epoch2utc(date)).substring(4, 15));
+				tr2.append('td').text(old).style('text-align', 'right');
+				tr2.append('td').text(_new).style('text-align', 'right');
+				tr2.append('td').text(diff).style('color', diff > 0 ? '00642e' : 'b30006').style('text-align', 'right');
+			}
 		}
 	}
 }
