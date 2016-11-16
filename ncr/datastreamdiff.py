@@ -126,17 +126,18 @@ class TimedDataDiff:
         nmiss, nnans, ninfs, nfill = 0, 0, 0, 0
         nmiss2, nnans2, ninfs2, nfill2 = 0, 0, 0, 0
         
-        for old_ns, new_ns in zip(self.old, self.new):
-            a = (0, 0, 0, 0) if old_ns is None else old_ns.get_nifs()
-            b = (0, 0, 0, 0) if new_ns is None else new_ns.get_nifs()
-            nmiss += a[0]
-            nnans += a[1]
-            ninfs += a[2]
-            nfill += a[3] 
-            nmiss2 += b[0]
-            nnans2 += b[1]
-            ninfs2 += b[2]
-            nfill2 += b[3] 
+        if self.old and self.new:
+            for old_ns, new_ns in zip(self.old, self.new):
+                a = (0, 0, 0, 0) if old_ns is None else old_ns.get_nifs()
+                b = (0, 0, 0, 0) if new_ns is None else new_ns.get_nifs()
+                nmiss += a[0]
+                nnans += a[1]
+                ninfs += a[2]
+                nfill += a[3] 
+                nmiss2 += b[0]
+                nnans2 += b[1]
+                ninfs2 += b[2]
+                nfill2 += b[3] 
 
         return (nmiss, nnans, ninfs, nfill, nmiss2, nnans2, ninfs2, nfill2)
 
@@ -253,17 +254,18 @@ class UntimedDataDiff(TimelineDiff):
         nmiss, nnans, ninfs, nfill = 0, 0, 0, 0
         nmiss2, nnans2, ninfs2, nfill2 = 0, 0, 0, 0
 
-        for i in self:
-            a = (0, 0, 0, 0) if i.old is None else i.old.get_nifs()
-            b = (0, 0, 0, 0) if i.new is None else i.new.get_nifs()
-            nmiss += a[0]
-            nnans += a[1]
-            ninfs += a[2]
-            nfill += a[3] 
-            nmiss2 += b[0]
-            nnans2 += b[1]
-            ninfs2 += b[2]
-            nfill2 += b[3] 
+        if self:
+            for i in self:
+                a = (0, 0, 0, 0) if i.old is None else i.old.get_nifs()
+                b = (0, 0, 0, 0) if i.new is None else i.new.get_nifs()
+                nmiss += a[0]
+                nnans += a[1]
+                ninfs += a[2]
+                nfill += a[3] 
+                nmiss2 += b[0]
+                nnans2 += b[1]
+                ninfs2 += b[2]
+                nfill2 += b[3] 
 
         return (nmiss, nnans, ninfs, nfill, nmiss2, nnans2, ninfs2, nfill2)
 
@@ -381,7 +383,9 @@ class VariableDiff:
             return 'changed'
 
     def get_nifs(self):
-        return self.data.get_nifs()
+        if self.data:
+            return self.data.get_nifs()
+        return (0,0,0,0,0,0,0,0)
 
     def jsonify(self):
         contents = [
@@ -565,20 +569,23 @@ class DatastreamDiff:
                     print()'''
 
         # the '' breaks in these tuples are intentional: they give space to their respective tables
-        data['Header'] = ('Variable','miss', 'nans', 'infs', 'fill', '', 'miss', 'nans', 'infs', 'fill')
-        data['Total'] = (nmiss, nanns, infs, fills, '',nmiss2, nanns2, infs2, fills2)            
+        if data:
+            data['Header'] = ('Variable','miss', 'nans', 'infs', 'fill', '', 'miss', 'nans', 'infs', 'fill')
+            data['Total'] = (nmiss, nanns, infs, fills, '',nmiss2, nanns2, infs2, fills2)            
 
         bad_data = {}
-        bad_data['nmiss'] = nmiss
-        bad_data['nanns'] = nanns
-        bad_data['infs'] =  infs
-        bad_data['fills'] = fills
+        if nmiss>0 or nanns>0 or infs>0 or fills>0:
+            bad_data['nmiss'] = nmiss
+            bad_data['nanns'] = nanns
+            bad_data['infs'] =  infs
+            bad_data['fills'] = fills
 
         bad_data2 = {}
-        bad_data2['nmiss'] = nmiss2
-        bad_data2['nanns'] = nanns2
-        bad_data2['infs'] =  infs2
-        bad_data2['fills'] = fills2
+        if nmiss2>0 or nanns2>0 or infs2>0 or fills2>0:
+            bad_data2['nmiss'] = nmiss2
+            bad_data2['nanns'] = nanns2
+            bad_data2['infs'] =  infs2
+            bad_data2['fills'] = fills2
 
         return {
             'type': 'summary',

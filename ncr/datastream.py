@@ -551,12 +551,13 @@ class TimedData:
         nnans = 0
         ninfs = 0
         nfill = 0
-        for ns in self.data.values():
-            a = (0, 0, 0, 0) if ns is None else ns.get_nifs()
-            nmiss += a[0] 
-            nnans += a[1]
-            ninfs += a[2]
-            nfill += a[3]
+        if self.data:
+            for ns in self.data.values():
+                a = (0, 0, 0, 0) if ns is None else ns.get_nifs()
+                nmiss += a[0] 
+                nnans += a[1]
+                ninfs += a[2]
+                nfill += a[3]
         return (nmiss, nnans, ninfs, nfill)
 
     def jsonify(self):
@@ -616,12 +617,13 @@ class UntimedData(Timeline):
         ninfs = 0
         nfill = 0
 
-        for i in self:
-            a = (0, 0, 0, 0) if i.val is None else i.val.get_nifs()
-            nmiss += a[0]
-            nnans += a[1]
-            ninfs += a[2]
-            nfill += a[3]
+        if self:
+            for i in self:
+                a = (0, 0, 0, 0) if i.val is None else i.val.get_nifs()
+                nmiss += a[0]
+                nnans += a[1]
+                ninfs += a[2]
+                nfill += a[3]
         
         return (nmiss, nnans, ninfs, nfill)
 
@@ -691,7 +693,9 @@ class Variable:
             self.data.load(sumvar)
 
     def get_nifs(self):
-        return self.data.get_nifs()
+        if not self.metadata_only:
+            return self.data.get_nifs()
+        return (0,0,0,0)
 
     def jsonify(self):
         sec = utils.json_section(self, [
@@ -853,15 +857,16 @@ class Datastream:
                         print(x, end='\t')
                     print()'''
 
-
-        data['Header'] = ('Variable','miss', 'nans', 'infs', 'fill')
-        data['Total'] = (nmiss, nanns, infs, fills)
+        if data:
+            data['Header'] = ('Variable','miss', 'nans', 'infs', 'fill')
+            data['Total'] = (nmiss, nanns, infs, fills)
         
         bad_data = {}
-        bad_data['nmiss'] = nmiss
-        bad_data['nanns'] = nanns
-        bad_data['infs'] =  infs
-        bad_data['fills'] = fills
+        if nmiss>0 or nanns>0 or infs>0 or fills>0:
+            bad_data['nmiss'] = nmiss
+            bad_data['nanns'] = nanns
+            bad_data['infs'] =  infs
+            bad_data['fills'] = fills
 
         return {
             'type': 'summary',
