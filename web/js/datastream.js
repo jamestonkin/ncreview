@@ -44,15 +44,17 @@ function render_datastream_diff(parent, object) {
 
 function render_summary(parent, object) {
 
+	if (Object.keys(object['bad_data']).length === 0 && Object.keys(object['data']).length === 0) {
+		return;
+	}
+	
 	var main_div = parent.append('div');
 	main_div.append('h1').text('Summary').style('color', '#ff6600');
 	
 	div = main_div.append('div')
 		.style('border-top', '1px solid black');
 
-	
-
-	if(object['bad_data']) {
+	if(Object.keys(object['bad_data']).length != 0) {
 
 		var par = div.append('p').text('Old Bad Data. The sums of each old column of each chart in Variables.');
 		var table = div.append('table').attr('id', 'bad_data');
@@ -64,7 +66,7 @@ function render_summary(parent, object) {
 		}
 	}
 
-	if(object['bad_data2']) {
+	if(Object.keys(object['bad_data2']).length != 0) {
 		var par = div.append('p').text('New Bad Data. The sums of each new column of each chart in Variables.');
 		var table = div.append('table').attr('id', 'bad_data');
 
@@ -77,7 +79,7 @@ function render_summary(parent, object) {
 
 	
 
-	if(object['data']) {
+	if(Object.keys(object['data']).length != 0) {
 
 		LENGTH = 0;
 		for(var x in object['data']['Header']) {
@@ -180,7 +182,7 @@ function render_summary(parent, object) {
 		
 	}
 
-	if(object['different_times'].length != 0){
+	if(Object.keys(object['different_times']).length != 0){
 		var par = div.append('p').text('Changes in Dimensions-time. The hard-to-see blue lines in the timeline.');
 
 		var table = div.append('table');
