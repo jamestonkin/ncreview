@@ -123,7 +123,6 @@ function render_summary(parent, object) {
 				var cls = 'same';
 
 				if (i >=0 && i <= 3 && LENGTH > 5) {
-					console.log(i, value, object['data'][key][i + 5]);
 					if(value === object['data'][key][i + 5]) {
 						cls = 'same';
 					}
@@ -145,8 +144,6 @@ function render_summary(parent, object) {
 						cls = 'removed';
 					}	
 				}
-
-				console.log(cls);
 
 				tr.append('td').text(value).style('text-align','right').attr('class', cls);
 				i++;
